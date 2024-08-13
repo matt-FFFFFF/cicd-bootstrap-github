@@ -67,13 +67,18 @@ jobs:
 
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false
+        run: terraform plan -input=false -out tfplan
+
+      - name: Setup go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: 'stable'
 
       - name: Generate changes table
         id: changes
         run: |
-          echo "## Changes"
-
+          go install github.com/matt-FFFFFF/tfplandoc@latest
+          terraform show -json tfplan | tfplandoc generate -
 
       - name: Update pull request
         if: (success() || failure()) && github.event_name == 'pull_request'
