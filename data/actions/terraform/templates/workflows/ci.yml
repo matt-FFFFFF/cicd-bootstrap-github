@@ -1,0 +1,99 @@
+---
+name: Continuous integration
+on:
+  workflow_call:
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ${runner_name}
+    environment: ${environment_name_plan}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform format check
+        run: terraform fmt -check
+
+      - name: Terraform init
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+  plan:
+    name: Validate Terraform plan
+    needs: validate
+    env:
+      TF_IN_AUTOMATION: true
+    runs-on: ${runner_name}
+    concurrency: ${backend_azure_storage_account_container_name}
+    environment: ${environment_name_plan}
+    permissions:
+      # NOTE: When modifying the token subject claims and adding `environment`.
+      # If the `id-token` permission is granted at the workflow level
+      # and the workflow has at least one job that does not specify an environment
+      # then the action will fail with an internal error.
+      id-token: write
+      contents: read
+      pull-requests: write
+    env:
+      ARM_CLIENT_ID: "$${{ vars.AZURE_CLIENT_ID }}"
+      ARM_SUBSCRIPTION_ID: "$${{ vars.AZURE_SUBSCRIPTION_ID }}"
+      ARM_TENANT_ID: "$${{ vars.AZURE_TENANT_ID }}"
+      ARM_USE_AZUREAD: true
+      ARM_USE_OIDC: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@651471c36a6092792c552e8b1bef71e592b462d8 # v3.1.1
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: |
+          terraform init \
+          -backend-config="resource_group_name=$${{vars.BACKEND_AZURE_RESOURCE_GROUP_NAME}}" \
+          -backend-config="storage_account_name=$${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME}}" \
+          -backend-config="container_name=$${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME}}" \
+          -backend-config="key=terraform.tfstate"
+
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -input=false
+
+      - name: Generate changes table
+        id: changes
+        run: |
+          echo "## Changes"
+
+
+      - name: Update pull request
+        if: (success() || failure()) && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: $${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Plan 📖\`$${{ steps.plan.outcome }}\`
+
+            <details><summary>Run details</summary>
+
+            The plan was a $${{ steps.plan.outcome }} see the action for more details.
+
+            </details>
+
+            *Pushed by: @$${{ github.actor }}, Action: \`$${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
