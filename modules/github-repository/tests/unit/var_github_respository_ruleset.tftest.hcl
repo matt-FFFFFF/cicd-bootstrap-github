@@ -1,26 +1,25 @@
-mock_provider "azurerm" {}
-mock_provider "azapi" {}
 mock_provider "github" {}
-mock_provider "random" {}
 mock_provider "modtm" {}
 
 variables {
-  github_organization_name = "test"
-  github_repository_name   = "test"
+  organization_name = "test"
+  repository_name   = "test"
+  team_name         = "test"
+  approvers         = []
 }
 
 run "actor_type_invalid" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [{
+    ruleset_bypass = [{
       actor_type  = "user"
       bypass_mode = "always"
     }]
   }
 
   expect_failures = [
-    var.github_respository_ruleset_bypass
+    var.ruleset_bypass
   ]
 }
 
@@ -28,14 +27,14 @@ run "team_without_id" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [{
+    ruleset_bypass = [{
       actor_type  = "Team"
       bypass_mode = "always"
     }]
   }
 
   expect_failures = [
-    var.github_respository_ruleset_bypass
+    var.ruleset_bypass
   ]
 }
 
@@ -43,7 +42,7 @@ run "bypass_mode_invalid" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [{
+    ruleset_bypass = [{
       actor_type  = "RepositoryRole"
       bypass_mode = "never"
       role_name   = "admin"
@@ -51,7 +50,7 @@ run "bypass_mode_invalid" {
   }
 
   expect_failures = [
-    var.github_respository_ruleset_bypass
+    var.ruleset_bypass
   ]
 }
 
@@ -59,7 +58,7 @@ run "role_name_invalid" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [{
+    ruleset_bypass = [{
       actor_type  = "RepositoryRole"
       bypass_mode = "always"
       role_name   = "owner"
@@ -67,7 +66,7 @@ run "role_name_invalid" {
   }
 
   expect_failures = [
-    var.github_respository_ruleset_bypass
+    var.ruleset_bypass
   ]
 }
 
@@ -75,14 +74,14 @@ run "role_name_null" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [{
+    ruleset_bypass = [{
       actor_type  = "RepositoryRole"
       bypass_mode = "always"
     }]
   }
 
   expect_failures = [
-    var.github_respository_ruleset_bypass
+    var.ruleset_bypass
   ]
 }
 
@@ -90,7 +89,7 @@ run "correct" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = [
+    ruleset_bypass = [
       {
         actor_type  = "RepositoryRole"
         bypass_mode = "always"
@@ -112,12 +111,17 @@ run "correct" {
       },
     ]
   }
+
+  assert {
+    condition     = local.ruleset_bypass[*].actor_id == [5, 123, 1, 1234]
+    error_message = "The actor_id is not set correctly."
+  }
 }
 
 run "empty_list" {
   command = plan
 
   variables {
-    github_respository_ruleset_bypass = []
+    ruleset_bypass = []
   }
 }
