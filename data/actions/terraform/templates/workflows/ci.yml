@@ -7,13 +7,15 @@ jobs:
   validate:
     name: Validate Terraform
     runs-on: ${runner_name}
+    env:
+      TF_IN_AUTOMATION: true
     environment: ${environment_name_plan}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: aactions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@651471c36a6092792c552e8b1bef71e592b462d8 # v3.1.1
         with:
           terraform_wrapper: false
 
@@ -26,11 +28,11 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      # Optionally, add additional checks here, e.g. tflint, unit tests, etc.
+
   plan:
     name: Validate Terraform plan
     needs: validate
-    env:
-      TF_IN_AUTOMATION: true
     runs-on: ${runner_name}
     concurrency: ${backend_azure_storage_account_container_name}
     environment: ${environment_name_plan}
@@ -48,6 +50,7 @@ jobs:
       ARM_TENANT_ID: "$${{ vars.AZURE_TENANT_ID }}"
       ARM_USE_AZUREAD: true
       ARM_USE_OIDC: true
+      TF_IN_AUTOMATION: true
     steps:
       - name: Checkout code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -67,28 +70,35 @@ jobs:
 
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -out tfplan
+        run: |
+          terraform plan -input=false -detailed-exitcode -out tfplan
+          echo "exitcode=$$?" >> "$$GITHUB_OUTPUT"
+        continue-on-error: true
 
       - name: Setup go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: 'stable'
+        if: steps.plan.exitcode == '2'
 
       - name: Generate changes table
         id: changes
         run: |
           go install github.com/matt-FFFFFF/tfplandoc@latest
-          terraform show -json tfplan | tfplandoc generate -
+          echo "table=$$(terraform show -json tfplan | tfplandoc generate -)" >> "$$GITHUB_OUTPUT"
+        if: steps.plan.exitcode == '2'
 
       - name: Update pull request
-        if: (success() || failure()) && github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        if: (always()) && github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: $${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `#### Terraform Plan 📖\`$${{ steps.plan.outcome }}\`
+            const output = `## Terraform Plan 📖\`$${{ steps.plan.outcome }}\`
 
             <details><summary>Run details</summary>
+
+            $${{ steps.changes.outputs.TABLE }}
 
             The plan was a $${{ steps.plan.outcome }} see the action for more details.
 

@@ -58,3 +58,9 @@ resource "github_repository_ruleset" "this" {
     }
   }
 }
+
+resource "github_actions_repository_oidc_subject_claim_customization_template" "this" {
+  repository         = github_repository.this.name
+  use_default        = false
+  include_claim_keys = ["repository", "environment", "job_workflow_ref"]
+}
