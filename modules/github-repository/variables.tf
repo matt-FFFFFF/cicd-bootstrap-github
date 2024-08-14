@@ -10,27 +10,27 @@ variable "repository_name" {
   nullable    = false
 }
 
-variable "visibility" {
+variable "repository_visibility" {
   type        = string
   description = "The visibility of the repository. Must be one of: `public`, or `private`."
   nullable    = false
 
   validation {
     error_message = "Visibility must be one of: `public`, or `private`."
-    condition     = contains(["public", "private"], var.visibility)
+    condition     = contains(["public", "private"], var.repository_visibility)
   }
 }
 
 variable "team_name" {
   type        = string
-  description = "The name of the GitHub team to create."
+  description = "The name of the GitHub team to create. Team will not be created is there are no approvers."
   nullable    = false
 }
 
 variable "access_level" {
   type        = string
   default     = "organization"
-  description = "The access level for the repository. Must be one of: `none`, `user`, `organization`, or `enterprise`."
+  description = "The access level for the repository (only pertains to private repos). Must be one of: `none`, `user`, `organization`, or `enterprise`."
   nullable    = false
 
   validation {
@@ -56,16 +56,31 @@ variable "codeowners_enabled" {
   default     = true
   description = "Whether or not to create a `.github/CODEOWNERS` file containing the created team."
   nullable    = false
+
+  validation {
+    error_message = "Codeowners requires approvers."
+    condition     = !var.codeowners_enabled ? true : length(var.approvers) > 0
+  }
 }
 
 variable "environments" {
   type = map(object({
     name                    = string
-    review_required         = optional(bool, true)
+    review_required         = optional(bool, false)
     protected_branches_only = optional(bool, false)
   }))
-  default  = {}
-  nullable = false
+  default     = {}
+  nullable    = false
+  description = <<DESCRIPTION
+A map of environments to create in the repository.
+The map key is arbitrary and the value is an object with the following attributes:
+
+- `name`: (Required) The name of the environment.
+- `review_required`: (Optional) Whether or not a review is required to deploy to the environment. Requires approvers. Default is `true`.
+- `protected_branches_only`: (Optional) Whether or not the environment is only available on protected branches. Default is `false`.
+
+See `var.environment_secrets`, `var.environment_secrets_values`, and `var.environments_variables` for environment specific configuration.
+DESCRIPTION
 }
 
 variable "environments_secrets" {
@@ -202,7 +217,7 @@ DESCRIPTION
 variable "ruleset_enabled" {
   type        = bool
   default     = true
-  description = "Whether or not to create the GitHub repository ruleset (branch protection). Requires a public repo, or a Pro or Enterprise plan."
+  description = "Whether or not to create the GitHub repository ruleset (branch protection). Requires a public repo, or a pro or Enterprise plan."
   nullable    = false
 }
 

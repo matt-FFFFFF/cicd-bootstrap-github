@@ -1,11 +1,18 @@
-mock_provider "github" {}
+mock_provider "github" {
+  mock_data "github_organization" {
+    defaults = {
+      plan = "enterprise"
+    }
+  }
+}
 mock_provider "modtm" {}
 
 variables {
-  organization_name = "test"
-  repository_name   = "test"
-  team_name         = "test"
-  approvers         = []
+  organization_name     = "test"
+  repository_name       = "test"
+  team_name             = "test"
+  repository_visibility = "private"
+  approvers             = ["test@test.com"]
 }
 
 run "actor_type_invalid" {
