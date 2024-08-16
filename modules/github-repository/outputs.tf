@@ -22,6 +22,6 @@ output "runner_group_name" {
   value = try(github_actions_runner_group.this[0].name, null)
 }
 
-output "subjects" {
+output "oidc_subjects" {
   value = local.oidc_subjects
 }

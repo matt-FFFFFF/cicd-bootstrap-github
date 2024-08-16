@@ -1,5 +1,4 @@
 locals {
-  apply_key            = "apply"
   approvers            = [for user in data.github_organization.this.users : user.login if contains(var.approvers, user.email)]
   default_commit_email = coalesce(local.primary_approver, "demo@microsoft.com")
   environments_secrets = { for item in flatten([
@@ -41,7 +40,7 @@ locals {
     }
     ]
   ])
-  organization_url = startswith(lower(var.organization_name), "https://") || startswith(lower(var.organization_name), "http://") ? var.organization_name : "https://github.com/${var.organization_name}"
+  organization_url = "https://github.com/${var.organization_name}"
   plan = {
     free       = "free"
     enterprise = "enterprise"

@@ -2,6 +2,21 @@ variable "organization_name" {
   type        = string
   description = "The name of the GitHub organization in which to create the resources."
   nullable    = false
+
+  validation {
+    error_message = "Organization name must be at least 1 character long."
+    condition     = length(var.organization_name) > 0
+  }
+
+  validation {
+    error_message = "Organization name must not be a URL."
+    condition     = !can(regex("https?://", var.organization_name))
+  }
+
+  validation {
+    error_message = "Organization name must not contain `github.com`."
+    condition     = !strcontains(var.organization_name, "github.com")
+  }
 }
 
 variable "repository_name" {
@@ -13,6 +28,7 @@ variable "repository_name" {
 variable "repository_visibility" {
   type        = string
   description = "The visibility of the repository. Must be one of: `public`, or `private`."
+  default     = "private"
   nullable    = false
 
   validation {
@@ -150,7 +166,7 @@ variable "oidc_subject_claim_keys" {
   nullable    = false
 }
 
-variable "ruleset_approving_review_count" {
+variable "approving_review_count" {
   type        = number
   default     = 0
   description = "The number of approving reviews required for a pull request."
@@ -158,15 +174,15 @@ variable "ruleset_approving_review_count" {
 
   validation {
     error_message = "Value must be a zero or a positive integer."
-    condition     = abs(floor(var.ruleset_approving_review_count)) == var.ruleset_approving_review_count
+    condition     = abs(floor(var.approving_review_count)) == var.approving_review_count
   }
   validation {
     error_message = "Value must be greater than or equal to `0` and less than `11`."
-    condition     = var.ruleset_approving_review_count >= 0 && var.ruleset_approving_review_count < 11
+    condition     = var.approving_review_count >= 0 && var.approving_review_count < 11
   }
   validation {
     error_message = "Must be less than or equal to `length(var.github_approvers)`."
-    condition     = var.ruleset_approving_review_count <= length(var.approvers)
+    condition     = var.approving_review_count <= length(var.approvers)
   }
 }
 
@@ -300,5 +316,26 @@ DESCRIPTION
   validation {
     error_message = "The workflow file must exist in `var.files`."
     condition     = alltrue([for _, value in var.workflows : contains(keys(var.files), value.workflow_file_name)])
+  }
+}
+
+variable "branch_protection_enabled" {
+  type        = bool
+  default     = false
+  description = "Whether or not to create branch protection rules for the repository. Note we recommend rulesets are used instead - rulesets require a paid plan or a public repo."
+  nullable    = false
+}
+
+variable "branch_protection_bypass_actors" {
+  type        = set(string)
+  default     = []
+  nullable    = false
+  description = <<DESCRIPTION
+The list of actor Names/IDs that are allowed to bypass pull request requirements. Actor names must either begin with a '/' for users or the organization name followed by a '/' for teams.
+DESCRIPTION
+
+  validation {
+    error_message = "Actor names must either begin with a '/' for users or the organization name followed by a '/' for teams."
+    condition     = alltrue([for actor in var.branch_protection_bypass_actors : can(regex("^(?:/|${var.organization_name}/).+$", actor))])
   }
 }
