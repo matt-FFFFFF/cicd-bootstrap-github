@@ -16,7 +16,7 @@ jobs:
     if: github.event.repository.name != 'terraform-azurerm-avm-template'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #v4.1.7
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd #v5.0.1
       - name: Check version
         uses: Azure/terraform-azurerm-avm-template/.github/actions/version-check@main
         with:
